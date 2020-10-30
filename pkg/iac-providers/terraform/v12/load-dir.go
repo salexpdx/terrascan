@@ -86,8 +86,20 @@ func (*TfV12) LoadIacDir(absRootDir string) (allResourcesConfig output.AllResour
 				// using *configs.ModuleRequest.Path field
 				pathArr := strings.Split(req.Path.String(), ".")
 				pathArr = pathArr[:len(pathArr)-1]
-				pathToModule = filepath.Join(absRootDir, filepath.Join(pathArr...), req.SourceAddr)
 				zap.S().Debugf("processing local module %q", req.SourceAddr)
+				// As long as parent is not nil, then we are in a child module.
+				parent := req.Parent
+				// start module path list with the last element, we will be prepending
+				// our way through the parents and then finally adding our absRootDir
+				// as the first element in the list. 
+				modulePathList := []string{req.SourceAddr}
+				for parent != nil {
+					modulePathList = append([]string{parent.SourceAddr}, modulePathList...)
+					parent = parent.Parent
+				}
+				modulePathList = append([]string{absRootDir}, modulePathList...)
+				pathToModule = filepath.Join(modulePathList...)
+				zap.S().Infof("processing local module %v in directory %v", req.Path.String(), pathToModule)
 			} else {
 				// temp dir to download the remote repo
 				tempDir := filepath.Join(os.TempDir(), utils.GenRandomString(6))
